@@ -9,7 +9,7 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
         [IntRange]
         _MaxLoop ("Maximum loop count for ForwardBase", Range(8, 1024)) = 128
 
-        _MinRayLength ("Minimum length of the ray", Float) = 0.001
+        _MinMarchingLength ("Minimum marching length", Float) = 0.001
 
         _MaxRayLength ("Maximum length of the ray", Float) = 1000.0
 
@@ -18,7 +18,7 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
         [KeywordEnum(Object, World)]
         _CalcSpace ("Calculation space", Int) = 0
 
-        [KeywordEnum(Off, On, LessEqual, GreaterEqual)]
+        [Toggle(_SVDEPTH_ON)]
         _SVDepth ("SV_Depth ouput", Int) = 1
 
         _OverRelaxFactor ("Marching Factor for Over Relaxation Sphere Tracing", Range(1.0, 2.0)) = 1.2
@@ -37,6 +37,9 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
         // ------------------------------------------------------------
         [Header(Rendering Parameters)]
         [Space(8)]
+        [Enum(UnityEngine.Rendering.CullMode)]
+        _Cull ("Culling Mode", Int) = 2  // Default: Back
+
         [Enum(UnityEngine.Rendering.BlendMode)]
         _SrcBlend ("Blend Source Factor", Int) = 1  // Default: One
 
@@ -99,7 +102,7 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
         CGINCLUDE
         #pragma target 3.0
         #pragma shader_feature_local _CALCSPACE_OBJECT _CALCSPACE_WORLD
-        #pragma shader_feature_local_fragment _SVDEPTH_OFF _SVDEPTH_ON
+        #pragma shader_feature_local_fragment _ _SVDEPTH_ON
 
         #include "UnityCG.cginc"
         #include "UnityStandardUtils.cginc"
@@ -111,8 +114,8 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
 
         //! Maximum loop count for ForwardBase.
         uniform int _MaxLoop;
-        //! Minimum length of the ray.
-        uniform float _MinRayLength;
+        //! Minimum marching length.
+        uniform float _MinMarchingLength;
         //! Maximum length of the ray.
         uniform float _MaxRayLength;
         //! Scale vector.
@@ -179,10 +182,10 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
         {
             //! Output color of the pixel.
             half4 color : SV_Target;
-        #if defined(_SVDEPTH_ON) && (!defined(SHADOWS_CUBE) || defined(SHADOWS_CUBE_IN_DEPTH_TEX))
+        #if defined(_SVDEPTH_ON)
             //! Depth of the pixel.
             float depth : SV_Depth;
-        #endif  // defined(_SVDEPTH_ON) && (!defined(SHADOWS_CUBE) || defined(SHADOWS_CUBE_IN_DEPTH_TEX))
+        #endif  // defined(_SVDEPTH_ON)
         };
 
 
@@ -240,14 +243,16 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
             const float3 rayDir = normalize(fi.fragPos - rayOrigin);
 
             const float3 rcpScales = rcp(_Scales);
-            const float marchingFactor = rsqrt(dot(rayDir * rcpScales, rayDir * rcpScales));
+            const float dcRate = rsqrt(dot(rayDir * rcpScales, rayDir * rcpScales));
+            const float minMarchingLength = _MinMarchingLength * dcRate;
+            const float maxRayLength = _MaxRayLength * dcRate;
 
             float rayLength = 0.0;
             float r = asfloat(0x7f800000);  // +inf
             float d = 0.0;
-            for (int i = 0; abs(r) >= _MinRayLength && rayLength < _MaxRayLength && i < _MaxLoop; i++) {
-                const float nextRayLength = rayLength + d * marchingFactor;
-                const float nextR = map((rayOrigin + rayDir * nextRayLength) * rcpScales);
+            for (int i = 0; abs(r) >= minMarchingLength && rayLength < maxRayLength && i < _MaxLoop; i++) {
+                const float nextRayLength = rayLength + d;
+                const float nextR = map((rayOrigin + rayDir * nextRayLength) * rcpScales) * dcRate;
                 if (d <= r + abs(nextR)) {
                     d = _OverRelaxFactor * nextR;
                     rayLength = nextRayLength;
@@ -257,7 +262,7 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
                 }
             }
 
-            if (abs(r) >= _MinRayLength) {
+            if (abs(r) >= _MinMarchingLength) {
                 discard;
             }
 
@@ -267,7 +272,8 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
         #else
             const float3 localFinalPos = rayOrigin + rayDir * rayLength;
             const float3 worldFinalPos = mul(unity_ObjectToWorld, float4(localFinalPos, 1.0)).xyz;
-            const float3 worldNormal = UnityObjectToWorldNormal(calcNormal(localFinalPos));
+            const float3 localNormal = calcNormal(localFinalPos);
+            const float3 worldNormal = UnityObjectToWorldNormal(localNormal);
         #endif  // defined(_CALCSPACE_WORLD)
 
             UNITY_LIGHT_ATTENUATION(atten, fi, worldFinalPos);
@@ -349,7 +355,7 @@ Shader "koturn/SphereTracingTips/06_Algorithm/OverRelaxation"
             || defined(SHADER_API_GLES3)
             // [-1.0, 1.0] -> [0.0, 1.0]
             // Near: -1.0
-            // Far: -1.0
+            // Far: 1.0
             return depth * 0.5 + 0.5;
         #else
             // [0.0, 1.0] -> [0.0, 1.0] (No conversion)

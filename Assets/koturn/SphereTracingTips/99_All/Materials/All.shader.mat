@@ -1,0 +1,96 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: All.shader
+  m_Shader: {fileID: 4800000, guid: 51af5898ba4a2bd41afc0e9fe8cfac8a, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _ASSUMEINSIDE_NONE
+  - _CALCSPACE_OBJECT
+  - _CLIPLENGTHMODE_CAMERA_CLIP
+  - _CULL_FRONT
+  - _DEBUGVIEW_NONE
+  - _LIGHTING_UNITY_STANDARD
+  - _STEPMETHOD_NORMAL
+  - _SVDEPTH_ON
+  - _VRCLIGHTVOLUMESSPECULAR_OFF
+  - _VRCLIGHTVOLUMES_OFF
+  m_InvalidKeywords:
+  - _BACKGROUNDDEPTH_FAR_CLIP
+  - _BACKGROUNDMODE_DISCARD
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs: []
+    m_Ints: []
+    m_Floats:
+    - _AccelarationFactor: 0.8
+    - _AlphaToMask: 0
+    - _AssumeInside: 0
+    - _AutoRelaxFactor: 0.8
+    - _BackgroundDepth: 0
+    - _BackgroundMode: 0
+    - _BlendOp: 0
+    - _BlendOpAlpha: 0
+    - _CalcSpace: 0
+    - _ClipLengthMode: 1
+    - _ColorMask: 15
+    - _Cull: 1
+    - _DebugRayLengthDiv: 5
+    - _DebugStepDiv: 24
+    - _DebugView: 0
+    - _DstBlend: 0
+    - _DstBlendAlpha: 0
+    - _ForwardAdd: 1
+    - _Glossiness: 0.5
+    - _GlossyReflections: 1
+    - _LTCGI: 0
+    - _Lighting: 2
+    - _MarchingFactor: 1
+    - _MaxInsideLength: 1.7321
+    - _MaxLoop: 128
+    - _MaxLoopForwardAdd: 64
+    - _MaxLoopShadowCaster: 32
+    - _MaxRayLength: 1000
+    - _Metallic: 0
+    - _MinMarchingLength: 0.001
+    - _OffsetFactor: 0
+    - _OffsetUnits: 0
+    - _OverRelaxFactor: 1.2
+    - _SVDepth: 1
+    - _SpecPower: 16
+    - _SpecularHighlights: 1
+    - _SrcBlend: 1
+    - _SrcBlendAlpha: 1
+    - _StencilComp: 8
+    - _StencilFail: 0
+    - _StencilPass: 0
+    - _StencilReadMask: 255
+    - _StencilRef: 0
+    - _StencilWriteMask: 255
+    - _StencilZFail: 0
+    - _StepMethod: 0
+    - _VRCLightVolumes: 0
+    - _VRCLightVolumesSpecular: 0
+    - _ZClip: 1
+    - _ZTest: 4
+    - _ZWrite: 1
+    m_Colors:
+    - _BackgroundColor: {r: 0, g: 0, b: 0, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _Scales: {r: 1, g: 1, b: 1, a: 1}
+    - _SpecColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  m_BuildTextureStacks: []

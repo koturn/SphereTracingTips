@@ -13,8 +13,8 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _CALCSPACE_OBJECT
+  m_InvalidKeywords:
   - _SVDEPTH_OFF
-  m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -33,15 +33,17 @@ Material:
     - _BlendOpAlpha: 0
     - _CalcSpace: 0
     - _ColorMask: 15
+    - _Cull: 2
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _MaxLoop: 128
     - _MaxRayLength: 1000
-    - _MinRayLength: 0.001
+    - _MinMarchingLength: 0.001
     - _OffsetFactor: 0
     - _OffsetUnits: 0
     - _OverRelaxFactor: 1.2
     - _SVDepth: 0
+    - _SpecPower: 16
     - _SrcBlend: 1
     - _SrcBlendAlpha: 1
     - _ZClip: 1
@@ -50,4 +52,5 @@ Material:
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _Scales: {r: 1, g: 1, b: 1, a: 1}
+    - _SpecColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   m_BuildTextureStacks: []

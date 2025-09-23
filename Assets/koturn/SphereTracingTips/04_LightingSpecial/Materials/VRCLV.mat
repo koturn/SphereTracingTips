@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: VRCLV
-  m_Shader: {fileID: 4800000, guid: 0e0b491a9561a0b45a066d06e48033cf, type: 3}
+  m_Shader: {fileID: 4800000, guid: 3058e968c27fd2a47ba194363f75e686, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
@@ -35,16 +35,18 @@ Material:
     - _BlendOpAlpha: 0
     - _CalcSpace: 0
     - _ColorMask: 15
+    - _Cull: 2
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _Glossiness: 0.5
     - _GlossyReflections: 1
+    - _LTCGI: 0
     - _Lighting: 2
     - _MarchingFactor: 1
     - _MaxLoop: 128
     - _MaxRayLength: 1000
     - _Metallic: 0
-    - _MinRayLength: 0.001
+    - _MinMarchingLength: 0.001
     - _OffsetFactor: 0
     - _OffsetUnits: 0
     - _SVDepth: 1

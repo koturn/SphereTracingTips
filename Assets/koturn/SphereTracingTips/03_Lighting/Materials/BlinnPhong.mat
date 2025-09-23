@@ -32,6 +32,7 @@ Material:
     - _BlendOpAlpha: 0
     - _CalcSpace: 0
     - _ColorMask: 15
+    - _Cull: 2
     - _DstBlend: 0
     - _DstBlendAlpha: 0
     - _Glossiness: 0.5
@@ -39,7 +40,7 @@ Material:
     - _MarchingFactor: 1
     - _MaxLoop: 128
     - _MaxRayLength: 1000
-    - _MinRayLength: 0.001
+    - _MinMarchingLength: 0.001
     - _OffsetFactor: 0
     - _OffsetUnits: 0
     - _SVDepth: 1

@@ -9,7 +9,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         [IntRange]
         _MaxLoop ("Maximum loop count for ForwardBase", Range(8, 1024)) = 128
 
-        _MinRayLength ("Minimum length of the ray", Float) = 0.001
+        _MinMarchingLength ("Minimum marching length", Float) = 0.001
 
         _MaxRayLength ("Maximum length of the ray", Float) = 1000.0
 
@@ -18,7 +18,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         [KeywordEnum(Object, World)]
         _CalcSpace ("Calculation space", Int) = 0
 
-        [KeywordEnum(Off, On, LessEqual, GreaterEqual)]
+        [Toggle(_SVDEPTH_ON)]
         _SVDepth ("SV_Depth ouput", Int) = 1
 
         _MarchingFactor ("Marching Factor", Range(0.5, 1.0)) = 1.0
@@ -54,6 +54,9 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         // ------------------------------------------------------------
         [Header(Rendering Parameters)]
         [Space(8)]
+        [Enum(UnityEngine.Rendering.CullMode)]
+        _Cull ("Culling Mode", Int) = 2  // Default: Back
+
         [Enum(UnityEngine.Rendering.BlendMode)]
         _SrcBlend ("Blend Source Factor", Int) = 1  // Default: One
 
@@ -115,7 +118,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         CGINCLUDE
         #pragma target 3.0
         #pragma shader_feature_local _CALCSPACE_OBJECT _CALCSPACE_WORLD
-        #pragma shader_feature_local_fragment _SVDEPTH_OFF _SVDEPTH_ON
+        #pragma shader_feature_local_fragment _ _SVDEPTH_ON
 
         #if defined(_VRCLIGHTVOLUMES_ON) || defined(_VRCLIGHTVOLUMES_ADDITIVE_ONLY) || defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
         #    define USE_VRCLIGHTVOLUMES
@@ -135,8 +138,8 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
 
         //! Maximum loop count for ForwardBase.
         uniform int _MaxLoop;
-        //! Minimum length of the ray.
-        uniform float _MinRayLength;
+        //! Minimum marching length.
+        uniform float _MinMarchingLength;
         //! Maximum length of the ray.
         uniform float _MaxRayLength;
         //! Scale vector.
@@ -205,10 +208,10 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         {
             //! Output color of the pixel.
             half4 color : SV_Target;
-        #if defined(_SVDEPTH_ON) && (!defined(SHADOWS_CUBE) || defined(SHADOWS_CUBE_IN_DEPTH_TEX))
+        #if defined(_SVDEPTH_ON)
             //! Depth of the pixel.
             float depth : SV_Depth;
-        #endif  // defined(_SVDEPTH_ON) && (!defined(SHADOWS_CUBE) || defined(SHADOWS_CUBE_IN_DEPTH_TEX))
+        #endif  // defined(_SVDEPTH_ON)
         };
 
 
@@ -273,16 +276,18 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
             const float3 rayDir = normalize(fi.fragPos - rayOrigin);
 
             const float3 rcpScales = rcp(_Scales);
-            const float marchingFactor = _MarchingFactor * rsqrt(dot(rayDir * rcpScales, rayDir * rcpScales));
+            const float dcRate = rsqrt(dot(rayDir * rcpScales, rayDir * rcpScales));
+            const float minMarchingLength = _MinMarchingLength * dcRate;
+            const float maxRayLength = _MaxRayLength * dcRate;
 
             float rayLength = 0.0;
             float d = asfloat(0x7f800000);  // +inf
-            for (int rayStep = 0; d >= _MinRayLength && rayLength < _MaxRayLength && rayStep < _MaxLoop; rayStep++) {
-                d = map((rayOrigin + rayDir * rayLength) * rcpScales);
-                rayLength += d * marchingFactor;
+            for (int rayStep = 0; d >= minMarchingLength && rayLength < maxRayLength && rayStep < _MaxLoop; rayStep++) {
+                d = map((rayOrigin + rayDir * rayLength) * rcpScales) * dcRate * _MarchingFactor;
+                rayLength += d;
             }
 
-            if (d >= _MinRayLength) {
+            if (d >= minMarchingLength) {
                 discard;
             }
 
@@ -292,7 +297,8 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         #else
             const float3 localFinalPos = rayOrigin + rayDir * rayLength;
             const float3 worldFinalPos = mul(unity_ObjectToWorld, float4(localFinalPos, 1.0)).xyz;
-            const float3 worldNormal = UnityObjectToWorldNormal(calcNormal(localFinalPos));
+            const float3 localNormal = calcNormal(localFinalPos);
+            const float3 worldNormal = UnityObjectToWorldNormal(localNormal);
         #endif  // defined(_CALCSPACE_WORLD)
 
             UNITY_LIGHT_ATTENUATION(atten, fi, worldFinalPos);
@@ -577,7 +583,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
             || defined(SHADER_API_GLES3)
             // [-1.0, 1.0] -> [0.0, 1.0]
             // Near: -1.0
-            // Far: -1.0
+            // Far: 1.0
             return depth * 0.5 + 0.5;
         #else
             // [0.0, 1.0] -> [0.0, 1.0] (No conversion)
@@ -693,4 +699,3 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         }
     }
 }
-
