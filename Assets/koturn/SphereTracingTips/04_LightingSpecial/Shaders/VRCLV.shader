@@ -47,7 +47,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         [KeywordEnum(Off, On)]
         _VRCLightVolumes ("VRC Light Volumes", Int) = 0
 
-        [KeywordEnum(Off, On, Dominant Dir)]
+        [KeywordEnum(Off, Approx dominant dir only, Approx, On)]
         _VRCLightVolumesSpecular ("VRC Light Volumes Specular", Int) = 0
 
 
@@ -120,9 +120,9 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         #pragma shader_feature_local _CALCSPACE_OBJECT _CALCSPACE_WORLD
         #pragma shader_feature_local_fragment _ _SVDEPTH_ON
 
-        #if defined(_VRCLIGHTVOLUMES_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #if defined(_VRCLIGHTVOLUMES_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_APPROX_DOMINANT_DIR_ONLY) || defined(_VRCLIGHTVOLUMESSPECULAR_APPROX) || defined(_VRCLIGHTVOLUMESSPECULAR_ON)
         #    define USE_VRCLIGHTVOLUMES
-        #endif  // defined(_VRCLIGHTVOLUMES_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #endif  // defined(_VRCLIGHTVOLUMES_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_APPROX_DOMINANT_DIR_ONLY) || defined(_VRCLIGHTVOLUMESSPECULAR_APPROX) || defined(_VRCLIGHTVOLUMESSPECULAR_ON)
 
         #include "UnityCG.cginc"
         #include "UnityStandardUtils.cginc"
@@ -225,7 +225,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         UnityGI getGI(float3 worldPos, half atten);
         UnityGIInput getGIInput(UnityLight light, float3 worldPos, float3 worldNormal, float3 worldViewDir, half atten, float4 lmap, half3 ambient);
         #if defined(USE_VRCLIGHTVOLUMES)
-        half3 calcLightVolumeEmission(half3 albedo, float3 worldPos, float3 worldNormal, float3 worldViewDir, half glossiness, half metallic);
+        half3 calcLightVolumeDiffuseSpecular(half3 albedo, float3 worldPos, float3 worldNormal, float3 worldViewDir, half glossiness, half metallic);
         #endif  // defined(USE_VRCLIGHTVOLUMES)
 
 
@@ -475,7 +475,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
                 const half metallic = 0.0;
         #    endif  // defined(_LIGHTING_UNITY_STANDARD)
                 gi.indirect.diffuse = half3(0.0, 0.0, 0.0);
-                so.Emission += calcLightVolumeEmission(color.rgb, worldPos, worldNormal, worldViewDir, glossiness, metallic);
+                so.Emission += calcLightVolumeDiffuseSpecular(color.rgb, worldPos, worldNormal, worldViewDir, glossiness, metallic);
             }
         #    endif  // defined(USE_VRCLIGHTVOLUMES)
         #endif  // UNITY_SHOULD_SAMPLE_SH && !defined(LIGHTMAP_ON)
@@ -521,7 +521,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
             // Ambient color.
         #if UNITY_SHOULD_SAMPLE_SH
         #    if defined(USE_VRCLIGHTVOLUMES)
-            ambient = calcLightVolumeEmission(color.rgb, worldPos, worldNormal, worldViewDir, 0.0, 0.0);
+            ambient = calcLightVolumeDiffuseSpecular(color.rgb, worldPos, worldNormal, worldViewDir, 0.0, 0.0);
         #    else
             ambient = ShadeSHPerPixel(worldNormal, ambient, worldPos);
         #    endif  // defined(USE_VRCLIGHTVOLUMES)
@@ -541,13 +541,13 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
          * @param [in] worldViewDir  View direction in world space.
          * @return Ambient color.
          */
-        half3 calcLightVolumeEmission(half3 albedo, float3 worldPos, float3 worldNormal, float3 worldViewDir, half glossiness, half metallic)
+        half3 calcLightVolumeDiffuseSpecular(half3 albedo, float3 worldPos, float3 worldNormal, float3 worldViewDir, half glossiness, half metallic)
         {
             float3 L0, L1r, L1g, L1b;
 
         #    if defined(VRCLV_VERSION) && VRCLV_VERSION >= 3
         #        if defined(_VRCLIGHTVOLUMES_ON)
-        #            if defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #            if defined(_VRCLIGHTVOLUMESSPECULAR_ON)
         #                if defined(LIGHTMAP_ON)
             float3 specular;
             LightVolumeAdditiveSHSpecular(
@@ -597,7 +597,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
                 (0.0).xxx,
                 worldNormal);
         #                endif  // defined(LIGHTMAP_ON)
-        #            endif  // defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #            endif  // defined(_VRCLIGHTVOLUMESSPECULAR_ON)
         #        else
             L0 = float3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w);
             L1r = unity_SHAr.xyz;
@@ -605,20 +605,20 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
             L1b = unity_SHAb.xyz;
         #        endif  // defined(_VRCLIGHTVOLUMES_ON)
 
-            const float3 indirect = max(LightVolumeEvaluate(worldNormal, L0, L1r, L1g, L1b), 0.0) * albedo;
-            const half3 emission = indirect - indirect * metallic;
+            const half3 diffuse = max(0.0, LightVolumeEvaluate(worldNormal, L0, L1r, L1g, L1b)) * albedo;
+            const half3 diffuseContrib = diffuse - diffuse * metallic;
 
-        #        if defined(_VRCLIGHTVOLUMES_ON) && (defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR))
+        #        if defined(_VRCLIGHTVOLUMES_ON) && defined(_VRCLIGHTVOLUMESSPECULAR_ON)
             // specular is already calculated.
-        #        elif defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #        elif defined(_VRCLIGHTVOLUMESSPECULAR_APPROX_DOMINANT_DIR_ONLY) || defined(_VRCLIGHTVOLUMESSPECULAR_ON)
             const float3 specular = LightVolumeSpecularDominant(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
-        #        elif defined(_VRCLIGHTVOLUMESSPECULAR_ON)
+        #        elif defined(_VRCLIGHTVOLUMESSPECULAR_APPROX)
             const float3 specular = LightVolumeSpecular(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
         #        else
             const float3 specular = (0.0).xxx;
-        #        endif  // defined(_VRCLIGHTVOLUMES_ON) && defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #        endif  // defined(_VRCLIGHTVOLUMES_ON) && defined(_VRCLIGHTVOLUMESSPECULAR_ON)
 
-            return emission + specular;
+            return diffuseContrib + specular;
         #    else
         #        if defined(_VRCLIGHTVOLUMES_ON)
         #            if defined(LIGHTMAP_ON)
@@ -633,18 +633,18 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
             L1b = unity_SHAb.xyz;
         #        endif  // defined(_VRCLIGHTVOLUMES_ON)
 
-            const float3 indirect = LightVolumeEvaluate(worldNormal, L0, L1r, L1g, L1b) * albedo;
-            half3 emission = indirect - indirect * metallic;
+            const half3 diffuse = max(0.0, LightVolumeEvaluate(worldNormal, L0, L1r, L1g, L1b)) * albedo;
+            const half3 diffuseContrib = diffuse - diffuse * metallic;
 
-        #        if defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #        if defined(_VRCLIGHTVOLUMESSPECULAR_APPROX_DOMINANT_DIR_ONLY) || defined(_VRCLIGHTVOLUMESSPECULAR_ON)
             const float3 specular = LightVolumeSpecularDominant(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
-        #        elif defined(_VRCLIGHTVOLUMESSPECULAR_ON)
+        #        elif defined(_VRCLIGHTVOLUMESSPECULAR_APPROX)
             const float3 specular = LightVolumeSpecular(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
         #        else
             const float3 specular = (0.0).xxx;
-        #        endif  // defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #        endif  // defined(_VRCLIGHTVOLUMESSPECULAR_APPROX_DOMINANT_DIR_ONLY)
 
-            return emission + specular;
+            return diffuseContrib + specular;
         #    endif  // defined(VRCLV_VERSION) && VRCLV_VERSION >= 3
         }
         #endif  // defined(USE_VRCLIGHTVOLUMES)
@@ -771,7 +771,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
             #pragma shader_feature_local_fragment _ _SPECULARHIGHLIGHTS_OFF
             #pragma shader_feature_local_fragment _ _GLOSSYREFLECTIONS_OFF
             #pragma shader_feature_local_fragment _VRCLIGHTVOLUMES_OFF _VRCLIGHTVOLUMES_ON
-            #pragma shader_feature_local_fragment _VRCLIGHTVOLUMESSPECULAR_OFF _VRCLIGHTVOLUMESSPECULAR_ON _VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR
+            #pragma shader_feature_local_fragment _VRCLIGHTVOLUMESSPECULAR_OFF _VRCLIGHTVOLUMESSPECULAR_APPROX_DOMINANT_DIR_ONLY _VRCLIGHTVOLUMESSPECULAR_APPROX _VRCLIGHTVOLUMESSPECULAR_ON
 
             #pragma vertex vert
             #pragma fragment frag

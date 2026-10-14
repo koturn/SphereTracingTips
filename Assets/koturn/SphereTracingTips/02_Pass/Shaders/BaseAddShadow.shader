@@ -602,7 +602,7 @@ Shader "koturn/SphereTracingTips/02_Pass/BaseAddShadow"
 
                 float rayLength = 0.0;
                 float d = asfloat(0x7f800000);  // +inf
-                for (int rayStep = 0; d >= minMarchingLength && rayLength < maxRayLength && rayStep < _MaxLoop; rayStep++) {
+                for (int rayStep = 0; d >= minMarchingLength && rayLength < maxRayLength && rayStep < _MaxLoopShadowCaster; rayStep++) {
                     d = map((rayOrigin + rayDir * rayLength) * rcpScales) * dcRate * _MarchingFactor;
                     rayLength += d;
                 }
