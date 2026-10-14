@@ -44,7 +44,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         [ToggleOff(_GLOSSYREFLECTIONS_OFF)]
         _GlossyReflections ("Glossy Reflections", Int) = 1
 
-        [KeywordEnum(Off, On, Additive Only)]
+        [KeywordEnum(Off, On)]
         _VRCLightVolumes ("VRC Light Volumes", Int) = 0
 
         [KeywordEnum(Off, On, Dominant Dir)]
@@ -120,9 +120,9 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
         #pragma shader_feature_local _CALCSPACE_OBJECT _CALCSPACE_WORLD
         #pragma shader_feature_local_fragment _ _SVDEPTH_ON
 
-        #if defined(_VRCLIGHTVOLUMES_ON) || defined(_VRCLIGHTVOLUMES_ADDITIVE_ONLY) || defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #if defined(_VRCLIGHTVOLUMES_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
         #    define USE_VRCLIGHTVOLUMES
-        #endif  // defined(_VRCLIGHTVOLUMES_ON) || defined(_VRCLIGHTVOLUMES_ADDITIVE_ONLY) || defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #endif  // defined(_VRCLIGHTVOLUMES_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
 
         #include "UnityCG.cginc"
         #include "UnityStandardUtils.cginc"
@@ -543,29 +543,109 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
          */
         half3 calcLightVolumeEmission(half3 albedo, float3 worldPos, float3 worldNormal, float3 worldViewDir, half glossiness, half metallic)
         {
-        #    if defined(_VRCLIGHTVOLUMES_ADDITIVE)
             float3 L0, L1r, L1g, L1b;
-            LightVolumeAdditiveSH(worldPos, /* out */ L0, /* out */ L1r, /* out */ L1g, /* out */ L1b);
-        #    elif defined(_VRCLIGHTVOLUMES_ON)
-            float3 L0, L1r, L1g, L1b;
-            LightVolumeSH(worldPos, /* out */ L0, /* out */ L1r, /* out */ L1g, /* out */ L1b);
+
+        #    if defined(VRCLV_VERSION) && VRCLV_VERSION >= 3
+        #        if defined(_VRCLIGHTVOLUMES_ON)
+        #            if defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #                if defined(LIGHTMAP_ON)
+            float3 specular;
+            LightVolumeAdditiveSHSpecular(
+                worldPos,
+                /* out */ L0,
+                /* out */ L1r,
+                /* out */ L1g,
+                /* out */ L1b,
+                /* out */ specular,
+                albedo,
+                glossiness,
+                metallic,
+                worldNormal,
+                worldViewDir);
+        #                else
+            float3 specular;
+            LightVolumeSHSpecular(
+                worldPos,
+                /* out */ L0,
+                /* out */ L1r,
+                /* out */ L1g,
+                /* out */ L1b,
+                /* out */ specular,
+                albedo,
+                glossiness,
+                metallic,
+                worldNormal,
+                worldViewDir);
+        #                endif  // defined(LIGHTMAP_ON)
+        #            else
+        #                if defined(LIGHTMAP_ON)
+            LightVolumeAdditiveSH(
+                worldPos,
+                /* out */ L0,
+                /* out */ L1r,
+                /* out */ L1g,
+                /* out */ L1b,
+                (0.0).xxx,
+                worldNormal);
+        #                else
+            LightVolumeSH(
+                worldPos,
+                /* out */ L0,
+                /* out */ L1r,
+                /* out */ L1g,
+                /* out */ L1b,
+                (0.0).xxx,
+                worldNormal);
+        #                endif  // defined(LIGHTMAP_ON)
+        #            endif  // defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #        else
+            L0 = float3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w);
+            L1r = unity_SHAr.xyz;
+            L1g = unity_SHAg.xyz;
+            L1b = unity_SHAb.xyz;
+        #        endif  // defined(_VRCLIGHTVOLUMES_ON)
+
+            const float3 indirect = max(LightVolumeEvaluate(worldNormal, L0, L1r, L1g, L1b), 0.0) * albedo;
+            const half3 emission = indirect - indirect * metallic;
+
+        #        if defined(_VRCLIGHTVOLUMES_ON) && (defined(_VRCLIGHTVOLUMESSPECULAR_ON) || defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR))
+            // specular is already calculated.
+        #        elif defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+            const float3 specular = LightVolumeSpecularDominant(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
+        #        elif defined(_VRCLIGHTVOLUMESSPECULAR_ON)
+            const float3 specular = LightVolumeSpecular(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
+        #        else
+            const float3 specular = (0.0).xxx;
+        #        endif  // defined(_VRCLIGHTVOLUMES_ON) && defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+
+            return emission + specular;
         #    else
-            const float3 L0 = float3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w);
-            const float3 L1r = unity_SHAr.xyz;
-            const float3 L1g = unity_SHAg.xyz;
-            const float3 L1b = unity_SHAb.xyz;
-        #    endif  // defined(_VRCLIGHTVOLUMES_ADDITIVE)
+        #        if defined(_VRCLIGHTVOLUMES_ON)
+        #            if defined(LIGHTMAP_ON)
+            LightVolumeAdditiveSH(worldPos, /* out */ L0, /* out */ L1r, /* out */ L1g, /* out */ L1b);
+        #            else
+            LightVolumeSH(worldPos, /* out */ L0, /* out */ L1r, /* out */ L1g, /* out */ L1b);
+        #            endif  // defined(LIGHTMAP_ON)
+        #        else
+            L0 = float3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w);
+            L1r = unity_SHAr.xyz;
+            L1g = unity_SHAg.xyz;
+            L1b = unity_SHAb.xyz;
+        #        endif  // defined(_VRCLIGHTVOLUMES_ON)
 
             const float3 indirect = LightVolumeEvaluate(worldNormal, L0, L1r, L1g, L1b) * albedo;
             half3 emission = indirect - indirect * metallic;
 
-        #    if defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
-            emission += LightVolumeSpecularDominant(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
-        #    elif defined(_VRCLIGHTVOLUMESSPECULAR_ON)
-            emission += LightVolumeSpecular(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
-        #    endif  // defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+        #        if defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
+            const float3 specular = LightVolumeSpecularDominant(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
+        #        elif defined(_VRCLIGHTVOLUMESSPECULAR_ON)
+            const float3 specular = LightVolumeSpecular(albedo, glossiness, metallic, worldNormal, worldViewDir, L0, L1r, L1g, L1b);
+        #        else
+            const float3 specular = (0.0).xxx;
+        #        endif  // defined(_VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR)
 
-            return emission;
+            return emission + specular;
+        #    endif  // defined(VRCLV_VERSION) && VRCLV_VERSION >= 3
         }
         #endif  // defined(USE_VRCLIGHTVOLUMES)
 
@@ -690,7 +770,7 @@ Shader "koturn/SphereTracingTips/04_LightingPlus/VRCLV"
             #pragma shader_feature_local_fragment _LIGHTING_UNITY_LAMBERT _LIGHTING_UNITY_BLINN_PHONG _LIGHTING_UNITY_STANDARD _LIGHTING_UNITY_STANDARD_SPECULAR _LIGHTING_UNLIT _LIGHTING_CUSTOM
             #pragma shader_feature_local_fragment _ _SPECULARHIGHLIGHTS_OFF
             #pragma shader_feature_local_fragment _ _GLOSSYREFLECTIONS_OFF
-            #pragma shader_feature_local_fragment _VRCLIGHTVOLUMES_OFF _VRCLIGHTVOLUMES_ON _VRCLIGHTVOLUMES_ADDITIVE_ONLY
+            #pragma shader_feature_local_fragment _VRCLIGHTVOLUMES_OFF _VRCLIGHTVOLUMES_ON
             #pragma shader_feature_local_fragment _VRCLIGHTVOLUMESSPECULAR_OFF _VRCLIGHTVOLUMESSPECULAR_ON _VRCLIGHTVOLUMESSPECULAR_DOMINANT_DIR
 
             #pragma vertex vert
